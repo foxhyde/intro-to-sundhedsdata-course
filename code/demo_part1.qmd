@@ -170,7 +170,7 @@ glimpse(bef)
 ```{r}
 #| label: inspect-head
 
-head(bef)
+head(bef,10)
 ```
 
 `head()` shows the first rows of the table.
@@ -227,7 +227,7 @@ bef <- bef |>
   mutate(koen = factor(koen, levels = c(1, 2), labels = c("Male", "Female")))
 
 # Writing to a column that already exists replaces it - the shape is unchanged
-count(bef, koen)
+# count(bef, koen)
 ```
 
 `count()` now shows the categories by name.
@@ -242,6 +242,7 @@ Two of the most common operations on data are selecting rows and selecting colum
 # filter() drops rows and leaves the columns alone
 filter(bef, alder >= 65)
 ```
+
 
 `select()` keeps only the columns you list, in the order you name them:
 
@@ -583,6 +584,8 @@ sum(file.size(list.files(paste0(processed_data_dir, "expbod_teaching_parquet/"),
 #### Partitioning data with folders
 
 Parquet files are written out in partitions. This is useful for a few reasons. If you only need to work with a subset of your data, you can read the data in and filter it more efficiently than needing to read everything into memory, just to use a subset. You can also see the contents of the data more easily, without reading in any data.
+
+** issue **
 
 ```{r}
 #| label: partition-pruning
