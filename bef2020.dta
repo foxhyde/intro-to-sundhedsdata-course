@@ -1,0 +1,18 @@
+START;PRE_SOCIO_KT;ANALYSE_KAT
+0;0  Ikke i AKM;unknown
+110;110  Selvstændige;employed
+111;111  Selvstændig, 10 eller flere ansatte;employed
+112;112  Selvstændig, 5 - 9 ansatte;employed
+113;113  Selvstændig, 1 - 4 ansatte;employed
+114;114  Selvstændig, ingen ansatte;employed
+120;120  Medarbejdende ægtefælle;employed
+130;130  Lønmodtager;employed
+210;210  Arbejdsløs mindst halvdelen af året;unemployed
+220;220  Modtager af sygedagpenge, uddannelsesgodtgørelse, orlovsydelser mm.;on_leave
+310;310  Under uddannelse, inkl.skoleelever min. 15 år;in_school
+321;321  Førtidspensionister;disab_recipient
+322;322  Folkepensionister;retired
+323;323  Efterlønsmodtager mv.;early_retirement
+330;330  Kontanthjælpsmodtager;on_welfare
+410;410  Andre;other
+420;420  Børn under 15 år ultimo året;children

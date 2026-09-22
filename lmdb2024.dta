@@ -1,0 +1,26 @@
+column,role,type,description
+variable,key,character,"Outcome variable name, 25 levels. See `domain` for grouping and `unit` for scale."
+domain,key,character,"DERIVED (not in the server export). Outcome group: labour (10 pre_socio_* states), income (2), wealth (6), property (1), family (6 num_kids_*)."
+unit,key,character,"DERIVED (not in the server export). 'EUR' for income and wealth outcomes; 'share' for the proportion-valued outcomes (labour states, num_kids_*, owns_property). Determines how to read `ace`: euros, or a proportion difference (x100 for percentage points)."
+disease,key,character,"Disease cohort (hospital diagnosis defining exposure): alcohol, breast_cancer, depression, stroke."
+sex,key,character,"Sex of the index individual: Female or Male. Estimates are never pooled across sex. breast_cancer is Female only, so there are 7 disease-sex cells."
+index,key,integer,"Years relative to the exposure year. -3 is the matching/baseline year, 0 is the diagnosis year. Range is -5 to 9 for all outcomes except the six wealth outcomes, which run -4 to 8 (the FORMPERS wealth registers start later)."
+mort,key,character,"Mortality-handling method. 'survivor' throughout: outcomes are estimated among those alive at t. The alternative ('normative', which scores decedents as 0) is not a sensible estimand for income, wealth or point-in-time state outcomes."
+stratifier,stratifier,character,"DERIVED (not in the server export). 'overall' for population-level rows, 'age_cat' for age-stratified rows. Every variable is present for both."
+aggregate,stratifier,integer,"1 for population-level (unstratified) rows, NA for age-stratified rows."
+age_cat,stratifier,character,"Baseline age band: 18to39, 40to64, 65plus. NA for population-level rows."
+ace,effect,numeric,"Average causal effect: exposed minus control, in the outcome's own units (see `unit`). The main estimate."
+pct,effect,numeric,Relative effect: ace / value_control. Equals risk_ratio - 1. Multiply by 100 for percent change.
+risk_ratio,effect,numeric,value_exposed / value_control. NA where value_control is 0.
+se,uncertainty,numeric,"Standard error of ace. Analytical (delta method), equal to sqrt(var_exposed + var_control). NOT bootstrapped."
+lower,uncertainty,numeric,Lower bound of the 95% CI for ace: ace - 1.96 * se.
+upper,uncertainty,numeric,Upper bound of the 95% CI for ace: ace + 1.96 * se.
+p_val,uncertainty,numeric,Two-sided p-value for ace against the null of no effect.
+se_rel,uncertainty,numeric,Standard error of the relative effect (delta method).
+se_log_rr,uncertainty,numeric,Standard error of log(risk_ratio) (delta method).
+var_exposed,uncertainty,numeric,Variance of the exposed group mean.
+var_control,uncertainty,numeric,Variance of the control group mean.
+value_exposed,group_mean,numeric,"Mean outcome in the exposed group at this index, in `unit`."
+value_control,group_mean,numeric,Mean outcome in the matched control group at this index. Equals value_exposed - ace.
+mort_exposed,mortality,numeric,Cumulative mortality in the exposed group by this index: died / (died + alive).
+mort_control,mortality,numeric,Cumulative mortality in the control group by this index: died / (died + alive).
