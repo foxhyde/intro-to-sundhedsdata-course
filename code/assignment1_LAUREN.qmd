@@ -1,0 +1,346 @@
+---
+title: "Assignment 1"
+subtitle: "Data Preparation and Analysis"
+author: "Lauren Campbell-Hansen"
+format: html
+---
+
+Load extra r packages
+
+```{r}
+library(tidyverse)
+library(haven)
+
+raw_data_dir <- "data/raw/"
+processed_data_dir <- "data/processed/202609/"
+```
+
+### Assignment
+
+Dataset with one row per person for 2019 all danes age 18-65 who are employed With vars/colomns.
+
+The final dataset must contain:
+
+- `pnr`
+- `alder`
+- `koen`
+- `civ`
+- `uddannelse`
+- `indkomst`
+- `gen_indkomst`
+- `forskel_indkomst`
+- `uddannelse_alder`
+
+# 1.1 read data in and take a look
+
+Read the BEF, UDDA, IND, HFAUDD, and PRE_SOCIO data sources.
+
+```{r}
+bef <-read_dta(paste0(raw_data_dir,"/bef2019.dta")) |> as.data.frame()
+udda <-read_dta(paste0(raw_data_dir,"/uddf2024.dta")) |> as.data.frame()
+ind <-read_dta(paste0(raw_data_dir,"/ind2019.dta")) |> as.data.frame()
+
+
+glimpse(bef)
+glimpse(udda)
+glimpse(ind)
+
+# Bef should contain pnr, alder, koen, civ, uddannelse, indkomst, gen_indkomst, forskel_indkomst and uddannelse_alder
+# all contain pnr = merge id
+```
+
+## Reading in txt files
+
+```{r}
+
+hfaudd <- read_tsv(
+  paste0(raw_data_dir, "/hfaudd_disced15.txt"),
+  show_col_types = FALSE
+) |>
+  as.data.frame()
+
+pre_socio <- read_delim(
+  paste0(raw_data_dir, "/pre_socio_klassifikation.txt"),
+  delim = ";",
+  show_col_types = FALSE
+)
+
+pre_socio_c <- pre_socio |>
+  select(
+    pre_socio = START,
+    arbejdsmarked = ANALYSE_KAT
+  ) |>
+  mutate(
+    pre_socio = as.character(pre_socio)
+  )
+
+glimpse(hfaudd)
+glimpse(pre_socio_c)
+```
+
+### 1.2 Categorical variables and variable types
+
+```{r}
+# bef = bef_c - just clean version
+bef_c <- bef |>
+  select(
+    pnr,
+    alder,
+    koen,
+    civ,
+    foedselsaar = `fødeår`
+  ) |>
+  filter(between(alder, 18,65)) |>
+  mutate(
+    pnr = as.character(pnr), #insure all joining variables have compatible types
+
+    koen = recode(
+      koen,
+      `1` = "Male",
+      `2` = "Female"
+    ),
+
+    civ = recode(
+      civ,
+      "U" = "Unmarried",
+      "G" = "Married",
+      "F" = "Divorced",
+      "E" = "Widowed",
+      "P" = "Registered partnership",
+      "O" = "Dissolved partnership",
+      "L" = "Surviving partner"
+    )
+  )
+
+glimpse (bef_c)
+
+```
+
+I create cleaned versions of the original datasets so that the original objects remain unchanged.
+
+## Prepare person-level education data
+
+The education code must remain available until it has been connected to the education classification table.
+
+```{r}
+hfaudd_c <- hfaudd |>
+  mutate(
+    HFAUDD = str_pad(
+      as.character(HFAUDD),
+      width = 4,
+      side = "left",
+      pad = "0"
+    )
+  )
+
+glimpse(hfaudd_c)
+
+udda_c <- udda |>
+  transmute(
+    pnr = as.character(pnr),
+    
+    hfaudd = str_pad(
+      as.character(hfaudd),
+      width = 4,
+      side = "left",
+      pad = "0"
+    ),
+    
+    hf_vfra = as.numeric(hf_vfra)
+  )
+
+glimpse(udda_c)
+
+```
+
+Attach the human-readable education level to the person-level education data.
+
+```{r}
+udda_labelled <- udda_c |>
+  left_join(
+    hfaudd_c,
+    by = c("hfaudd" = "HFAUDD")
+  ) |>
+  transmute(
+    pnr,
+    hf_vfra,
+    uddannelse = NIVEAU_TEKST
+  )
+
+glimpse(udda_labelled)
+
+```
+
+## Prepare income and employment data
+
+```{r}
+ind_c <- ind |>
+  transmute(
+    pnr = as.character(pnr),
+    pre_socio = as.character(pre_socio),
+    indkomst = as.numeric(perindkialt_13)
+  )
+pre_socio_c <- pre_socio_c |>
+  mutate(
+    pre_socio = as.character(pre_socio)
+  )
+
+glimpse(ind_c)
+glimpse(pre_socio_c)
+
+```
+
+### 1.3 Merging datasets
+
+The person-level datasets are joined using `pnr`. Employment status is attached using the `pre_socio` classification code.
+
+```{r}
+dt <- bef_c |>
+  left_join(
+    udda_labelled,
+    by = "pnr"
+  ) |>
+  left_join(
+    ind_c,
+    by = "pnr"
+  ) |>
+  left_join(
+    pre_socio_c,
+    by = "pre_socio"
+  )
+
+glimpse(dt)
+```
+
+#### Check employment status
+
+Check which employment categories are present.
+
+```{r}
+count(dt, arbejdsmarked)
+```
+
+Retain employed individuals only.
+
+```{r}
+dt <- dt |>
+  filter(arbejdsmarked == "employed")
+
+count(dt, arbejdsmarked)
+```
+
+### 1.4 Create new variables
+
+First, missing education information is recoded as `Unknown`.
+
+```{r}
+dt <- dt |>
+  mutate(
+    uddannelse = replace_na(
+      uddannelse,
+      "Unknown"
+    )
+  )
+
+count(dt, uddannelse)
+```
+
+Calculate age at completion of education.
+
+```{r}
+dt <- dt |>
+  mutate(
+    uddannelse_alder = hf_vfra - foedselsaar
+  )
+
+summary(dt$uddannelse_alder)
+```
+
+Calculate the mean income for each education group.
+
+```{r}
+dt <- dt |>
+  group_by(uddannelse) |>
+  mutate(
+    gen_indkomst = mean(
+      indkomst,
+      na.rm = TRUE
+    )
+  ) |>
+  ungroup()
+```
+
+Calculate the difference between each individual’s income and the mean income for their education group.
+
+```{r}
+dt <- dt |>
+  mutate(
+    forskel_indkomst = indkomst - gen_indkomst
+  )
+```
+
+### 1.5 Prepare the final dataset
+
+Convert the categorical variables to factors and retain exactly the required columns.
+
+```{r}
+dt <- dt |>
+  mutate(
+    koen = as_factor(koen),
+    civ = as_factor(civ),
+    uddannelse = as_factor(uddannelse)
+  ) |>
+  select(
+    pnr,
+    alder,
+    koen,
+    civ,
+    uddannelse,
+    indkomst,
+    gen_indkomst,
+    forskel_indkomst,
+    uddannelse_alder
+  )
+```
+
+Inspect the completed dataset.
+
+```{r}
+glimpse(dt)
+summary(dt)
+```
+
+Confirm that the dataset contains exactly the required columns.
+
+```{r}
+names(dt)
+```
+
+### 1.6 Save the final dataset
+
+The finished dataset is saved as a CSV file in the `code` folder.
+
+```{r}
+#| label: save-final-dataset
+
+write_csv(
+  dt,
+  "code/assignment1_campbell_hansen.csv"
+)
+```
+
+## Codebook for the final dataset
+
+**Population:** Employed Danish individuals aged 18–65 in 2019. The final dataset contains one row per person.
+
+| Column | Type | What it holds | Raw dataset and variable | Data management |
+|---------------|---------------|---------------|---------------|---------------|
+| `pnr` | character | Unique person identifier used to connect records across datasets | `bef2019.dta`: `pnr`; also present in `uddf2024.dta` and `ind2019.dta` | Converted to character and used as the person-level joining key |
+| `alder` | numeric | Age in completed years in 2019 | `bef2019.dta`: `alder` | Only people aged 18–65 were retained |
+| `koen` | factor | Sex in human-readable categories | `bef2019.dta`: `koen` | Recoded from `1` and `2` to `Male` and `Female`, then converted to a factor |
+| `civ` | factor | Marital status in human-readable categories | `bef2019.dta`: `civ` | Register codes were recoded into readable marital-status categories and converted to a factor |
+| `uddannelse` | factor | Highest achieved education level in human-readable words | `uddf2024.dta`: `hfaudd`; `hfaudd_disced15.txt`: `HFAUDD` and `NIVEAU_TEKST` | `hfaudd` was joined to `HFAUDD`; `NIVEAU_TEKST` was retained and missing values were recoded as `Unknown` |
+| `indkomst` | numeric | Individual income level | `ind2019.dta`: `perindkialt_13` | Renamed `indkomst` and converted to numeric |
+| `gen_indkomst` | numeric | Mean income among employed individuals aged 18–65 with the same education level | Derived from `indkomst` and `uddannelse` | Calculated as the mean income within each education group; missing income values were excluded |
+| `forskel_indkomst` | numeric | Difference between individual income and the mean income for the same education group | Derived from `indkomst` and `gen_indkomst` | Calculated as `indkomst - gen_indkomst`; positive values indicate income above the group mean |
+| `uddannelse_alder` | numeric | Approximate age at which the education level was achieved | `uddf2024.dta`: `hf_vfra`; `bef2019.dta`: `fødeår` | Calculated as education year minus recorded birth year |
